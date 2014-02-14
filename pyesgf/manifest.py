@@ -84,19 +84,36 @@ class ManifestExtractor(object):
 
 
 class SolrManifestExtractor(ManifestExtractor):
-    SOLR_BATCH_SIZE = 1000
+    SOLR_BATCH_SIZE = 500
     SOLR_FIELDS = ['dataset_id', 'title', 'checksum_type', 'checksum',
                    'tracking_id','size']
+    TIMESTAMP_STRPTIME = '%Y-%d-%mT%H:%M:%SZ'
 
-    def __init__(self, endpoint, project, from_date=None):
+    def __init__(self, endpoint, project, 
+                 from_date=None, to_date=None, start=None):
         self.endpoint = endpoint
         self.project = project
         self.from_date = from_date
+        self.to_date = to_date
+        if start is None:
+            self.start = 0
+        else:
+            self.start = start
 
     def _query(self, offset):
         fq = 'project:{0}'.format(self.project)
+
+        if self.to_date:
+            to_date = self.from_date.strftime(self.TIMESTAMP_STRPTIME)
+        else:
+            to_date = 'NOW'
+
         if self.from_date:
-            fq += ' AND timestamp[{0}Z TO NOW]'.format(self.from_date)
+            fq += ' AND timestamp:[{0} TO {1}]'.format(
+                self.from_date.strftime(self.TIMESTAMP_STRPTIME),
+                to_date
+                )
+            fq = urllib2.quote(fq)
 
         params = (
             ('q', '*'),
@@ -134,7 +151,7 @@ class SolrManifestExtractor(ManifestExtractor):
  
         """
 
-        offset = 0
+        offset = self.start
         current_dataset_id = None
         current_manifest = None
         while 1:
@@ -192,8 +209,8 @@ def cmip5_manifest_partitioner(drs_id):
 
 
 
-def extract_from_solr(endpoint, project, target_dir, from_date=None):
-    solr_extractor = SolrManifestExtractor(endpoint, project, from_date)
+def extract_from_solr(endpoint, project, target_dir, from_date=None, to_date=None, start=None):
+    solr_extractor = SolrManifestExtractor(endpoint, project, from_date, to_date, start)
 
     for manifest in solr_extractor:
 
@@ -238,14 +255,24 @@ if __name__ == '__main__':
     parser.add_argument('endpoint', help='SOLr endpoint as http://<host>:<port>')
     parser.add_argument('project', help='The project to extract')
     parser.add_argument('repository', help='Path to the manifest repository')
-    parser.add_argument('--from', dest='from_date', action='store', 
+    parser.add_argument('--from', dest='from_date', action='store',
                         help='The minimum timestamp of returned SOLr records')
+    parser.add_argument('--to', dest='to_date', action='store',
+                        help='The minimum timestamp of returned SOLr records')
+    parser.add_argument('--start', action='store', type=int,
+                        help='The first record in the result set to extract.  Used to restart jobs')
 
     args = parser.parse_args()
 
     if args.from_date:
         from_date = parse_timestamp(args.from_date)
     else:
-        from_date is None
+        from_date = None
 
-    extract_from_solr(args.endpoint, args.project, args.repository, from_date=from_date)
+    if args.to_date:
+        to_date = parse_timestamp(args.to_date)
+    else:
+        to_date = None
+
+    extract_from_solr(args.endpoint, args.project, args.repository, 
+                      from_date=from_date, to_date=to_date, start=args.start)
