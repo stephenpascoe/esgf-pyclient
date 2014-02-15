@@ -246,6 +246,40 @@ def parse_timestamp(timestamp):
 
     return dt
 
+
+class ManifestIndex(object):
+    """
+    Index manifests into an sqlite3 file
+
+    """
+
+    def __init__(self, dbfile):
+        import sqlite3
+
+        self._conn = sqlite3.connect(dbfile)
+
+    def init(self):
+        cur = self._conn.cursor()
+
+        cur.execute('''CREATE TABLE manifest (
+                         id INT PRIMARY KEY,
+                         name TEXT
+                       )''')
+        cur.execute('''CREATE TABLE tracking_id (
+                         uuid CHAR(32) PRIMARY KEY,
+                         manifest_id int
+                       )''')
+        # Note, use <checksum-type>:<hexdigest>
+        cur.execute('''CREATE TABLE hash (
+                         hash CHAR(32) PRIMARY KEY,
+                         manifest_id int
+                       )''')
+
+    
+
+
+
+
 if __name__ == '__main__':
     import argparse
 
