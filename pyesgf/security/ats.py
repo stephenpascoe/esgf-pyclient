@@ -36,23 +36,41 @@ ATS_REQUEST_TMPL = Template('''<?xml version="1.0" encoding="UTF-8"?>
 
 
 
-class AttributeService(object):
+AZS_REQUEST_TMPL = Template('''<?xml version="1.0" encoding="UTF-8"?>
+<soap11:Envelope xmlns:soap11="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap11:Body>
+    <samlp:AuthzDecisionQuery xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+                              ID="{{ msg_id }}" IssueInstant="{{ timestamp }}" 
+                              Resource="{{ resource }}" Version="2.0">
+      <saml:Subject xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
+        <saml:NameID Format="urn:esg:openid">{{ subject }}</saml:NameID>
+      </saml:Subject>
+      <saml:Action xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">{{ action }}</saml:Action>
+    </samlp:AuthzDecisionQuery>
+  </soap11:Body>
+</soap11:Envelope>
+''')
+
+class SAMLService(object):
     ISSUER = 'esgf-pyclient'
+    REQUEST_TMPL = NotImplemented
+    RESPONSE_MAKER = NotImplemented
+
     def __init__(self, url):
         self.url = url
 
-    def build_request(self, openid, attributes):
+    def build_request(self, **params):
         now = datetime.datetime.utcnow()
-
-        return ATS_REQUEST_TMPL.render(
-            msg_id=uuid.uuid1(),
+        msg_id=uuid.uuid1()
+        
+        return self.REQUEST_TMPL.render(
+            msg_id=msg_id,
             timestamp=now.isoformat()+'Z',
             issuer=self.ISSUER,
-            openid=openid,
-            attributes=attributes)
+            **params)
 
-    def send_request(self, openid, attributes):
-        post_body = self.build_request(openid, attributes)
+    def send_request(self, **params):
+        post_body = self.build_request(**params)
         req = urllib2.Request(self.url, post_body)
         req.add_header('Content-Type', 'text/xml')
         req.add_header('Content-Length', str(len(req.get_data())))
@@ -60,10 +78,10 @@ class AttributeService(object):
         log.debug(req.get_data())
         resp = urllib2.urlopen(req)
 
-        return AttributeServiceResponse(resp)
+        return self.RESPONSE_MAKER(resp)
 
 
-class AttributeServiceResponse(object):
+class SAMLResponse(object):
     def __init__(self, source):
         self.xml = ET.parse(source)
 
@@ -73,6 +91,14 @@ class AttributeServiceResponse(object):
 
         return subject_el.text
 
+    def get_status(self):
+        fpath = './/{{{0}}}Status/{{{0}}}StatusCode'.format(NS['saml2p'])
+        sc = self.xml.find(fpath)
+        
+        return sc.get('Value')
+
+
+class AttributeServiceResponse(SAMLResponse):
     def get_attributes(self):
         d = {}
         fpath = './/{{{0}}}AttributeStatement/{{{0}}}Attribute'.format(NS['saml'])
@@ -91,8 +117,9 @@ class AttributeServiceResponse(object):
 
         return d
 
-    def get_status(self):
-        fpath = './/{{{0}}}Status/{{{0}}}StatusCode'.format(NS['saml2p'])
-        sc = self.xml.find(fpath)
-        
-        return sc.get('Value')
+
+
+class AttributeService(SAMLService):
+    REQUEST_TMPL = ATS_REQUEST_TMPL
+    RESPONSE_MAKER = AttributeServiceResponse
+
