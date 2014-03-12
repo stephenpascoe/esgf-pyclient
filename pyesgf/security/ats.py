@@ -86,6 +86,7 @@ class SAMLResponse(object):
         self.xml = ET.parse(source)
 
     def get_subject(self):
+        #!FIXME: fails if UnknownPrinicple!
         fpath = './/{{{0}}}Subject/{{{0}}}NameID'.format(NS['saml'])
         subject_el = self.xml.find(fpath)
 
