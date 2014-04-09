@@ -92,9 +92,10 @@ class SearchConnection(object):
 
         self.url = mo.group(1)
 
+    #!FIXME: document outside _send_query()
     def send_search(self, query_dict, limit=None, offset=None, shards=None):
         """
-        Send a query to the "search" endpoint.  See :meth:`send_query()` for details.
+        Send a query to the "search" endpoint.  See :meth:`_send_query()` for details.
 
         :return: The json document for the search results
 
@@ -105,9 +106,10 @@ class SearchConnection(object):
 
         return ret
 
+    #!FIXME: document outside _send_query()
     def send_wget(self, query_dict, shards=None):
         """
-        Send a query to the "search" endpoint.  See :meth:`send_query()` for details.
+        Send a query to the "search" endpoint.  See :meth:`_send_query()` for details.
 
         :return: A string containing the script.
 
@@ -211,10 +213,11 @@ class SearchConnection(object):
                                                                                shard_parts['suffix']))
 
 
+    #!FIXME: document outside _send_query()
     def get_shard_list(self):
         """
         return the list of all available shards.  A subset of the returned list can be
-        supplied to 'send_query()' to limit the query to selected shards.
+        supplied to '_send_query()' to limit the query to selected shards.
 
         Shards are described by hostname and mapped to SOLr shard descriptions internally.
 
