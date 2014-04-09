@@ -170,6 +170,13 @@ class DatasetResult(BaseResult):
         """
         return self.json['number_of_files']
 
+    @property
+    def data_node(self):
+        try:
+            return self.json['data_node']
+        except KeyError:
+            return None
+
     def file_context(self):
         """
         Return a SearchContext for searching for files within this dataset.
